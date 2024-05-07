@@ -757,7 +757,8 @@ urlpatterns = [
     
     #---------------- Zoho Final Salesorder Report - Ginto Shaji - Start-------------------->
     path('Salesorder_report', views.Salesorder_report, name='Salesorder_report'),
-     
+    path('salesReportCustomized', views.salesReportCustomized, name='salesReportCustomized'),
+    
      
     #---------------- Zoho Final Salesorder Report - Ginto Shaji - end-------------------->
      

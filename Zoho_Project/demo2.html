@@ -1,0 +1,88 @@
+
+def salesReportCustomized(request):
+    if 'login_id' in request.session:
+        log_id = request.session['login_id']
+        log_details= LoginDetails.objects.get(id=log_id)
+        if log_details.user_type == 'Company':
+            cmp = CompanyDetails.objects.get(login_details = log_details)
+            dash_details = CompanyDetails.objects.get(login_details=log_details)
+        else:
+            cmp = StaffDetails.objects.get(login_details = log_details).company
+            dash_details = StaffDetails.objects.get(login_details=log_details)
+
+        allmodules= ZohoModules.objects.get(company = cmp)
+
+        if request.method == 'GET':
+            trans = request.GET['transactions']
+            startDate = request.GET['from_date']
+            endDate = request.GET['to_date']
+            if startDate == "":
+                startDate = None
+            if endDate == "":
+                endDate = None
+
+            reportData = []
+            totInv = 0
+            totRecInv = 0
+            totCrdNote = 0
+            subTot = 0
+            subTotWOCrd = 0
+
+            cust = Customer.objects.filter(company=cmp)
+
+            for c in cust:
+                customerName = c.first_name +" "+c.last_name
+                count = 0
+                sales = 0
+
+                if startDate == None or endDate == None:
+                    if trans == "all":
+                        sale = SaleOrder.objects.filter(customer=c, status = 'Saved')
+                    elif trans == 'saved':
+                        sale = SaleOrder.objects.filter(customer=c, status = 'Saved')
+                    elif trans == 'draft':
+                        sale = SaleOrder.objects.filter(Customer=c, status = 'Saved')
+                    elif trans == 'Converted to Invoice':
+                        sale = SaleOrder.objects.filter(Customer=c, status = 'Saved')
+                    elif trans == 'Converted to RecurringInvoice ':
+                        sale = SaleOrder.objects.filter(Customer=c, status = 'Saved')
+                else:
+                    if trans == 'all':
+                        sale = SaleOrder.objects.filter(customer=c, date__range = [startDate, endDate], status = 'Saved')
+                    elif trans == 'saved':
+                        sale = SaleOrder.objects.filter(customer=c, date__range = [startDate, endDate], status = 'Saved')
+                    elif trans == 'draft':
+                        sale = SaleOrder.objects.filter(customer=c, date__range = [startDate, endDate], status = 'draft')
+                    elif trans == 'Converted to Invoice':
+                        sale = SaleOrder.objects.filter(customer=c, date__range = [startDate, endDate], status = 'Saved')
+                    elif trans == 'Converted to RecurringInvoice':
+                        sale = SaleOrder.objects.filter(customer=c, date__range = [startDate, endDate], status = 'Saved')
+
+                if sale:
+                    count += len(sale)
+                    for i in sale:
+                        sales += float(i.grand_total)
+                        totsel += float(i.grand_total)
+                        subTot += float(i.sub_total)
+                        subTotWOCrd += float(i.sub_total)
+
+
+                details = {
+                    'name': customerName,
+                    'count':count,
+                    'sales':sales
+                }
+
+                reportData.append(details)
+
+            totCust = len(cust)
+            totSale = totInv + totRecInv - totCrdNote
+
+            context = {
+                'allmodules':allmodules, 'cmp':cmp,  'reportData':reportData,'totalCustomers':totCust,  
+                'subtotal':subTot, 'subtotalWOCredit':subTotWOCrd, 'totalSale':totSale, 'totalSaleWOCredit':totSaleWOCrdNote,
+                'startDate':startDate, 'endDate':endDate, 'transaction':trans,
+            }
+            return render(request,'zohomodules/Reports/Salesorder_report.html', context)
+    else:
+        return redirect('/')

@@ -32393,8 +32393,106 @@ def Salesorder_report(request):
                 'log_details': log_details,
                 'total_sales_amount': total_sales_amount
             })
-     
+    
 
+def salesReportCustomized(request):
+    if 'login_id' in request.session:
+        if request.session.has_key('login_id'):
+            log_id = request.session['login_id']   
+        else:
+           return redirect('/')
+        log_details= LoginDetails.objects.get(id=log_id)
+        if log_details.user_type=='Staff':
+            dash_details = StaffDetails.objects.get(login_details=log_details)
+            comp_details=CompanyDetails.objects.get(id=dash_details.company.id)
+        else:    
+            dash_details = CompanyDetails.objects.get(login_details=log_details)
+            comp_details=CompanyDetails.objects.get(login_details=log_details)
+
+        allmodules= ZohoModules.objects.get(company=comp_details,status='New')
+        data=Customer.objects.filter(company=comp_details)
+    
+
+        if request.method == 'GET':
+            trans = request.GET['transactions']
+            startDate = request.GET['from_date']
+            endDate = request.GET['to_date']
+            if startDate == "":
+                startDate = None
+            if endDate == "":
+                endDate = None
+
+            reportData = []
+            totInv = 0
+            totRecInv = 0
+            totCrdNote = 0
+            subTot = 0
+            subTotWOCrd = 0
+
+            cust = Customer.objects.filter(company=comp_details)
+
+            for c in cust:
+                customerName = c.first_name +" "+c.last_name
+                count = 0
+                sales = 0
+
+                if startDate == None or endDate == None:
+                    if trans == "all":
+                        sale = SaleOrder.objects.filter(company=comp_details)
+
+                    elif trans == 'saved':
+                        sale = SaleOrder.objects.filter(company=comp_details, status = 'Save', convert_to_invoice__isnull=True, convert_to_recurringinvoice__isnull=True)
+                        
+                    elif trans == 'draft':
+                        sale = SaleOrder.objects.filter(company=comp_details, status = 'Draft',convert_to_invoice__isnull=True, convert_to_recurringinvoice__isnull=True)
+                        
+                    elif trans == 'Converted_to_Invoice':
+                        sale = SaleOrder.objects.filter(company=comp_details, convert_to_invoice__isnull=False)
+                        
+                    elif trans == 'Converted_to_RecurringInvoice ':
+                        sale = SaleOrder.objects.filter(company=comp_details, convert_to_recurringinvoice__isnull=False)
+                else:
+                    if trans == 'all':
+                        sale = SaleOrder.objects.filter(company=comp_details, sales_order_date__range = [startDate, endDate])
+                        
+                    elif trans == 'saved':
+                        sale = SaleOrder.objects.filter(customer=c, sales_order_date__range = [startDate, endDate], status = 'Saved')
+                    elif trans == 'draft':
+                        sale = SaleOrder.objects.filter(customer=c, sales_order_date__range = [startDate, endDate], status = 'draft')
+                    elif trans == 'Converted_to_Invoice':
+                        sale = SaleOrder.objects.filter(customer=c, sales_order_date__range= [startDate, endDate], status = 'Saved')
+                    elif trans == 'Converted_to_RecurringInvoice':
+                        sale = SaleOrder.objects.filter(customer=c, sales_order_date__range = [startDate, endDate], status = 'Saved')
+
+                # if sale:
+                #     count += len(sale)
+                #     for i in sale:
+                #         sales += float(i.grand_total)
+                #         totsel += float(i.grand_total)
+                #         subTot += float(i.sub_total)
+                #         subTotWOCrd += float(i.sub_total)
+
+
+                details = {
+                    'name': customerName,
+                    'count':count,
+                    'sales':sales
+                }
+
+                reportData.append(details)
+
+            totCust = len(cust)
+            totSale = totInv + totRecInv - totCrdNote
+
+            context = {
+                'sale': sale,'allmodules':allmodules, 'reportData':reportData,'totalCustomers':totCust,  
+                'subtotal':subTot, 'subtotalWOCredit':subTotWOCrd, 'totalSale':totSale,
+                'startDate':startDate, 'endDate':endDate, 'transaction':trans,
+            }
+            return render(request,'zohomodules/Reports/Salesorder_report.html', context)
+        else:
+           return redirect('/')
+    
 
 
 
