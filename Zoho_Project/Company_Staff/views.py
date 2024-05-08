@@ -32393,7 +32393,8 @@ def Salesorder_report(request):
                 'log_details': log_details,
                 'total_sales_amount': total_sales_amount
             })
-    
+
+
 
 def salesReportCustomized(request):
     if 'login_id' in request.session:
@@ -32401,97 +32402,125 @@ def salesReportCustomized(request):
             log_id = request.session['login_id']   
         else:
            return redirect('/')
-        log_details= LoginDetails.objects.get(id=log_id)
-        if log_details.user_type=='Staff':
+        log_details = LoginDetails.objects.get(id=log_id)
+        if log_details.user_type == 'Staff':
             dash_details = StaffDetails.objects.get(login_details=log_details)
-            comp_details=CompanyDetails.objects.get(id=dash_details.company.id)
+            comp_details = CompanyDetails.objects.get(id=dash_details.company.id)
         else:    
             dash_details = CompanyDetails.objects.get(login_details=log_details)
-            comp_details=CompanyDetails.objects.get(login_details=log_details)
+            comp_details = CompanyDetails.objects.get(login_details=log_details)
 
-        allmodules= ZohoModules.objects.get(company=comp_details,status='New')
-        data=Customer.objects.filter(company=comp_details)
-    
+        allmodules = ZohoModules.objects.get(company=comp_details,status='New')
+        data = Customer.objects.filter(company=comp_details)  
 
         if request.method == 'GET':
-            trans = request.GET['transactions']
-            startDate = request.GET['from_date']
-            endDate = request.GET['to_date']
+            trans = request.GET.get('transactions', None)
+            startDate = request.GET.get('from_date', None)
+            endDate = request.GET.get('to_date', None)
             if startDate == "":
                 startDate = None
             if endDate == "":
                 endDate = None
 
-            reportData = []
-            totInv = 0
-            totRecInv = 0
-            totCrdNote = 0
-            subTot = 0
-            subTotWOCrd = 0
-
             cust = Customer.objects.filter(company=comp_details)
 
-            for c in cust:
-                customerName = c.first_name +" "+c.last_name
-                count = 0
-                sales = 0
+            total_sales_amount = 0  
 
-                if startDate == None or endDate == None:
-                    if trans == "all":
-                        sale = SaleOrder.objects.filter(company=comp_details)
+            sale = SaleOrder.objects.filter(company=comp_details)  
 
-                    elif trans == 'saved':
-                        sale = SaleOrder.objects.filter(company=comp_details, status = 'Save', convert_to_invoice__isnull=True, convert_to_recurringinvoice__isnull=True)
-                        
-                    elif trans == 'draft':
-                        sale = SaleOrder.objects.filter(company=comp_details, status = 'Draft',convert_to_invoice__isnull=True, convert_to_recurringinvoice__isnull=True)
-                        
-                    elif trans == 'Converted_to_Invoice':
-                        sale = SaleOrder.objects.filter(company=comp_details, convert_to_invoice__isnull=False)
-                        
-                    elif trans == 'Converted_to_RecurringInvoice ':
-                        sale = SaleOrder.objects.filter(company=comp_details, convert_to_recurringinvoice__isnull=False)
-                else:
-                    if trans == 'all':
-                        sale = SaleOrder.objects.filter(company=comp_details, sales_order_date__range = [startDate, endDate])
-                        
-                    elif trans == 'saved':
-                        sale = SaleOrder.objects.filter(customer=c, sales_order_date__range = [startDate, endDate], status = 'Saved')
-                    elif trans == 'draft':
-                        sale = SaleOrder.objects.filter(customer=c, sales_order_date__range = [startDate, endDate], status = 'draft')
-                    elif trans == 'Converted_to_Invoice':
-                        sale = SaleOrder.objects.filter(customer=c, sales_order_date__range= [startDate, endDate], status = 'Saved')
-                    elif trans == 'Converted_to_RecurringInvoice':
-                        sale = SaleOrder.objects.filter(customer=c, sales_order_date__range = [startDate, endDate], status = 'Saved')
+            if startDate and endDate:
+                sale = sale.filter(sales_order_date__range=[startDate, endDate])
 
-                # if sale:
-                #     count += len(sale)
-                #     for i in sale:
-                #         sales += float(i.grand_total)
-                #         totsel += float(i.grand_total)
-                #         subTot += float(i.sub_total)
-                #         subTotWOCrd += float(i.sub_total)
-
-
-                details = {
-                    'name': customerName,
-                    'count':count,
-                    'sales':sales
-                }
-
-                reportData.append(details)
-
-            totCust = len(cust)
-            totSale = totInv + totRecInv - totCrdNote
+            if trans == 'saved':
+                sale = sale.filter(status='Save', convert_to_invoice__isnull=True, convert_to_recurringinvoice__isnull=True)
+            elif trans == 'draft':
+                sale = sale.filter(status='Draft', convert_to_invoice__isnull=True, convert_to_recurringinvoice__isnull=True)
+            elif trans == 'Converted_to_Invoice':
+                sale = sale.filter(convert_to_invoice__isnull=False)
+            elif trans == 'Converted_to_RecurringInvoice':
+                sale = sale.filter(convert_to_recurringinvoice__isnull=False)
+                
+            total_sales_amount = sale.aggregate(total_sales=Sum('grand_total'))['total_sales'] or 0
 
             context = {
-                'sale': sale,'allmodules':allmodules, 'reportData':reportData,'totalCustomers':totCust,  
-                'subtotal':subTot, 'subtotalWOCredit':subTotWOCrd, 'totalSale':totSale,
-                'startDate':startDate, 'endDate':endDate, 'transaction':trans,
+                'sale': sale,
+                'log_details': log_details,
+                'details': dash_details,
+                'allmodules': allmodules,
+                'startDate': startDate, 
+                'endDate': endDate, 
+                'transaction': trans,
+                'total_sales_amount': total_sales_amount,  
             }
             return render(request,'zohomodules/Reports/Salesorder_report.html', context)
         else:
            return redirect('/')
+   
+   
+       
+
+from django.core.mail import send_mail
+from django.conf import settings
+from django.contrib import messages
+from openpyxl import Workbook
+from datetime import date
+from django.core.mail import EmailMessage
+from io import BytesIO
+
+def shareSalesReportsToEmail(request):
+    try:
+        if 'login_id' in request.session:
+            if request.session.has_key('login_id'):
+                log_id = request.session['login_id']
+            else:
+                return redirect('/')
+            
+            log_details = LoginDetails.objects.get(id=log_id)
+            if log_details.user_type == 'Staff':
+                dash_details = StaffDetails.objects.get(login_details=log_details)
+                comp_details = CompanyDetails.objects.get(id=dash_details.company.id)
+            else:
+                dash_details = CompanyDetails.objects.get(login_details=log_details)
+                comp_details = CompanyDetails.objects.get(login_details=log_details)
+                
+            allmodules = ZohoModules.objects.get(company=comp_details,status='New')
+            
+            sale = SaleOrder.objects.filter(company=comp_details)
+            
+            if request.method == 'POST':
+                emails_string = request.POST['email_ids']
+                emails_list = [email.strip() for email in emails_string.split(',')]
+                email_message = request.POST['email_message']
+
+                workbook = Workbook()
+                worksheet = workbook.active
+                worksheet.title = 'Salesorder Reports'
+
+                headers = ['STATUS', 'DATE', 'SHIPMENT DATE', 'SALES ORDER NO', 'CUSTOMER NAME','TOTAL AMOUNT']
+                worksheet.append(headers)
+
+                for sel in sale:
+                    row_data = [sel.status, sel.sales_order_date, sel.expiration_date, 
+                                sel.sales_order_number, f"{sel.customer.first_name} {sel.customer.last_name}", 
+                                sel.grand_total]
+                    worksheet.append(row_data)
+
+                excelfile = BytesIO()
+                workbook.save(excelfile)
+                
+                mail_subject = f'Salesorder Reports - {date.today()}'
+                message = f"Hi,\nPlease find the SALES REPORTS file attached. \n{email_message}\n\n--\nRegards,\n{comp_details.company_name}\n{comp_details.address}\n{comp_details.state} - {comp_details.country}\n"
+                message = EmailMessage(mail_subject, message, settings.EMAIL_HOST_USER, emails_list)
+                message.attach(f'Salesorder Reports-{date.today()}.xlsx', excelfile.getvalue(), 'application/vnd.ms-excel')
+                message.send(fail_silently=False)
+
+                messages.success(request, 'Sales Report has been shared via email successfully.')
+                return redirect(Salesorder_report)
+    except Exception as e:
+        print(e)
+        messages.error(request, 'An error occurred while sharing the sales report via email.')
+        return redirect(Salesorder_report)
+
     
 
 

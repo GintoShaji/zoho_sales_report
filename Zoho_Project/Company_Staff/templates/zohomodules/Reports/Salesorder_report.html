@@ -199,15 +199,15 @@
                                     <form action="{% url 'salesReportCustomized' %}" class="form reportCustomizeForm" method="get">
                                         <div class="px-2">
                                             <label style="text-align:left ">From</label><br>
-                                            <input name="from_date" class="inputdate form-control" type="date" id="startDate" value="{{startDate}}">
+                                            <input style="color: white;" name="from_date" class="inputdate form-control" type="date" id="startDate" value="{{startDate}}">
                                         </div>
                                         <div class="px-2">
                                             <label style="text-align:left ">To</label><br>
-                                            <input name="to_date" type="date" class="inputdate form-control" id="endDate" value="{{endDate}}">
+                                            <input style="color: white;" name="to_date" type="date" class="inputdate form-control" id="endDate" value="{{endDate}}">
                                         </div>
                                         <div class="px-2">
                                             <label style="text-align:left;color: white;">Sales Transaction</label><br>
-                                            <select name="transactions" id="salesTransactions" class="form-control">
+                                            <select name="transactions" style="color: white; background-color: rgb(19, 17, 17); "  id="salesTransactions" class="form-control">
                                                 <option value="all">All</option>
                                                 <option value="saved">Saved</option>
                                                 <option value="draft">Draft</option>
@@ -215,15 +215,26 @@
                                                 <option value="Converted_to_RecurringInvoice">Converted to RecurringInvoice</option>
                                             </select>
                                         </div>
-                                        <div class="d-flex px-2 mt-3 mb-4">
+                                        <!-- <div class="d-flex px-2 mt-3 mb-4">
                                             <button type="submit" class="btn btn-outline-light w-50">Run Report</button>
                                             <button type="reset" onclick="toggleContent()" class="btn btn-outline-light ml-1 w-50">Cancel</button>
+                                        </div> -->
+                                        <div class="d-flex px-2 mt-3 mb-4">
+                                            <button type="submit" class="btn btn-outline-light w-50">Run Report</button>
+                                            <button type="button" onclick="resetForm(), toggleContent()" class="btn btn-outline-light ml-1 w-50">Cancel</button>
                                         </div>
                                     </form>
                                 </div>
                             </div>
                           </div>
                           
+                          <script>
+                            function resetForm() {
+                                document.getElementById("startDate").value = ""; 
+                                document.getElementById("endDate").value = "";   
+                                document.getElementById("salesTransactions").selectedIndex = 0; 
+                            }
+                        </script>
                               
                               
                         </div>
@@ -270,7 +281,7 @@
                                                 <div class="py-4 bg-warning" >
                                                     <!-- <div id="ember2512" class="col-md-4 d-flex justify-content-start tooltip-container ember-view ribbon text-ellipsis"></div> -->
                                                     <div class="col-12">
-                                                            <center class="h2 text-white"><b>{{details.login_details.first_name}} 
+                                                            <center class="h2 text-white"><b>{{sale.company.company_name}} 
                                                                 {{details.login_details.last_name}}</b></center>
                                                             <center class="h3 text-white"><b>SALES ORDER DETAILS</b></center>
                                                             {% if startDate and endDate %}
@@ -313,21 +324,25 @@
                                                                         <td class="text-center">{{i.grand_total}}</td>
                                                                     </tr>
                                                                     {% endfor %}
+
                                                                 </tbody>
                                                             </table>
                                                         </section>
                                             
+            
+
                                                         <section class="balance-info text-dark">
                                                             <div class="row p-4">
                                                                 <div class="col-10">
                                                                     <div class="row mb-2">
-                                                                        
+                                                                        <div class="col-4">Total customers : <p style="font-size: 19px;">{{totalCustomers|default:0}}</p>
+                                                                        </div><br><br>
                                                                     </div>
                                                                     
                                                                 </div>
                                                                 <div class="col-2 text-center">
                                                                     <h5 style="padding-top: 10px; color: #000; font-weight: bold;">Total Sales</h5>
-                                                                    <h4 class="text-dark" style="font-weight: 600;" id="totvalue">₹<span id="superTotal">{{totalSale|default:0|floatformat:2}}</span></h4>
+                                                                    <h4 class="text-dark" style="font-weight: 600;" id="totvalue">₹<span id="superTotal">{{total_sales_amount|default:0|floatformat:2}}</span></h4>
                                                                 </div>
                                                             </div>
                                                         </section>
@@ -353,7 +368,7 @@
               </button>
             </div>
             <div class="modal-body mx-3" style="background-color: #000;">
-              <form action="" method="post" id="share_to_email_form" class="needs-validation" novalidate enctype="multipart/form-data">
+              <form action="{% url 'shareSalesReportsToEmail' %}" method="post" id="share_to_email_form" class="needs-validation" novalidate enctype="multipart/form-data">
                 {%csrf_token%}
                 <div class="form-group">
                     <label for="emailIds">Email IDs</label>
