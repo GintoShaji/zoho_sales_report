@@ -32366,49 +32366,40 @@ def bill_overview(request,pk):
 
 def Salesorder_report(request):
     if 'login_id' in request.session:
-        if request.session.has_key('login_id'):
-            log_id = request.session['login_id']   
-        else:
-           return redirect('/')
+        log_id = request.session['login_id']
         log_details= LoginDetails.objects.get(id=log_id)
-        if log_details.user_type=='Staff':
-            dash_details = StaffDetails.objects.get(login_details=log_details)
-            comp_details=CompanyDetails.objects.get(id=dash_details.company.id)
-        else:    
-            dash_details = CompanyDetails.objects.get(login_details=log_details)
-            comp_details=CompanyDetails.objects.get(login_details=log_details)
-
-        allmodules= ZohoModules.objects.get(company=comp_details,status='New')
-        data=Customer.objects.filter(company=comp_details)
-    else:
-        return redirect('/')
+        if log_details.user_type == 'Company':
+            comp_details = CompanyDetails.objects.get(login_details = log_details)
+        else:
+            comp_details = StaffDetails.objects.get(login_details = log_details).company
     
+    allmodules= ZohoModules.objects.get(company=comp_details,status='New')
+    data=Customer.objects.filter(company=comp_details)
     sale = SaleOrder.objects.filter(company=comp_details)
     total_sales_amount = sale.aggregate(grand_total=Sum('grand_total'))['grand_total']
+    totalCustomer = Customer.objects.filter(company=comp_details).count()
     return render(request, 'zohomodules/Reports/Salesorder_report.html', {
                 'sale': sale,
-                'details': dash_details,
                 'allmodules': allmodules,
                 'data': data,
                 'log_details': log_details,
-                'total_sales_amount': total_sales_amount
+                'total_sales_amount': total_sales_amount,
+                'totalCustomer':totalCustomer,
+                'companyName':comp_details.company_name,
             })
 
 
 
+from django.db.models import Count, Sum
+
 def salesReportCustomized(request):
     if 'login_id' in request.session:
-        if request.session.has_key('login_id'):
-            log_id = request.session['login_id']   
+        log_id = request.session['login_id']
+        log_details= LoginDetails.objects.get(id=log_id)
+        if log_details.user_type == 'Company':
+            comp_details = CompanyDetails.objects.get(login_details = log_details)
         else:
-           return redirect('/')
-        log_details = LoginDetails.objects.get(id=log_id)
-        if log_details.user_type == 'Staff':
-            dash_details = StaffDetails.objects.get(login_details=log_details)
-            comp_details = CompanyDetails.objects.get(id=dash_details.company.id)
-        else:    
-            dash_details = CompanyDetails.objects.get(login_details=log_details)
-            comp_details = CompanyDetails.objects.get(login_details=log_details)
+            comp_details = StaffDetails.objects.get(login_details = log_details).company
 
         allmodules = ZohoModules.objects.get(company=comp_details,status='New')
         data = Customer.objects.filter(company=comp_details)  
@@ -32421,10 +32412,6 @@ def salesReportCustomized(request):
                 startDate = None
             if endDate == "":
                 endDate = None
-
-            cust = Customer.objects.filter(company=comp_details)
-
-            total_sales_amount = 0  
 
             sale = SaleOrder.objects.filter(company=comp_details)  
 
@@ -32442,84 +32429,86 @@ def salesReportCustomized(request):
                 
             total_sales_amount = sale.aggregate(total_sales=Sum('grand_total'))['total_sales'] or 0
 
+            # Count unique customers based on the filtered sales orders
+            totalCustomer = sale.values('customer').distinct().count()
+
             context = {
                 'sale': sale,
                 'log_details': log_details,
-                'details': dash_details,
                 'allmodules': allmodules,
                 'startDate': startDate, 
                 'endDate': endDate, 
                 'transaction': trans,
-                'total_sales_amount': total_sales_amount,  
+                'total_sales_amount': total_sales_amount,
+                'totalCustomer': totalCustomer,
+                'companyName':comp_details.company_name, 
             }
             return render(request,'zohomodules/Reports/Salesorder_report.html', context)
         else:
            return redirect('/')
    
    
-       
-
-from django.core.mail import send_mail
-from django.conf import settings
-from django.contrib import messages
-from openpyxl import Workbook
-from datetime import date
-from django.core.mail import EmailMessage
-from io import BytesIO
-
+   
 def shareSalesReportsToEmail(request):
-    try:
-        if 'login_id' in request.session:
-            if request.session.has_key('login_id'):
-                log_id = request.session['login_id']
+    if 'login_id' in request.session:
+        log_id = request.session['login_id']
+        log_details = LoginDetails.objects.get(id=log_id)
+        if log_details.user_type == 'Company':
+            com = CompanyDetails.objects.get(login_details=log_details)
+        else:
+            com = StaffDetails.objects.get(login_details=log_details).company
+
+        if request.method == 'POST':
+            emails_string = request.POST.get('email_ids', '')
+            emails_list = [email.strip() for email in emails_string.split(',') if email.strip()]
+            email_message = request.POST.get('email_message', '')
+            totalCustomer = request.POST.get('count', '')  
+            total_sales_amount = request.POST.get('total_sales','')
+            start_date = request.POST.get('start_date')
+            end_date = request.POST.get('end_date')
+
+            if start_date and end_date:
+                itms = SaleOrder.objects.filter(Q(company=com) & Q(sales_order_date__range=[start_date, end_date]))
             else:
-                return redirect('/')
-            
-            log_details = LoginDetails.objects.get(id=log_id)
-            if log_details.user_type == 'Staff':
-                dash_details = StaffDetails.objects.get(login_details=log_details)
-                comp_details = CompanyDetails.objects.get(id=dash_details.company.id)
-            else:
-                dash_details = CompanyDetails.objects.get(login_details=log_details)
-                comp_details = CompanyDetails.objects.get(login_details=log_details)
-                
-            allmodules = ZohoModules.objects.get(company=comp_details,status='New')
-            
-            sale = SaleOrder.objects.filter(company=comp_details)
-            
-            if request.method == 'POST':
-                emails_string = request.POST['email_ids']
-                emails_list = [email.strip() for email in emails_string.split(',')]
-                email_message = request.POST['email_message']
+                itms = SaleOrder.objects.filter(company=com)
 
-                workbook = Workbook()
-                worksheet = workbook.active
-                worksheet.title = 'Salesorder Reports'
+            context = {
+                'sale': itms,
+                'cmp': com,
+                'companyName': com.company_name,
+                'total_sales_amount': total_sales_amount,
+                'totalCustomer': totalCustomer,
+                'start_date': start_date,
+                'end_date': end_date
+            }
 
-                headers = ['STATUS', 'DATE', 'SHIPMENT DATE', 'SALES ORDER NO', 'CUSTOMER NAME','TOTAL AMOUNT']
-                worksheet.append(headers)
+            template_path = 'zohomodules/Reports/Salesorder_pdf.html'
+            template = get_template(template_path)
+            html = template.render(context)
+            result = BytesIO()
+            pdf = pisa.pisaDocument(BytesIO(html.encode("UTF-8")), result)
+            pdf = result.getvalue()
 
-                for sel in sale:
-                    row_data = [sel.status, sel.sales_order_date, sel.expiration_date, 
-                                sel.sales_order_number, f"{sel.customer.first_name} {sel.customer.last_name}", 
-                                sel.grand_total]
-                    worksheet.append(row_data)
+            filename = f'Salesorder Reports'
+            subject = f"Salesorder Reports"
+            email = EmailMsg(
+                subject,
+                f"Hi,\nPlease find the attached Salesorder Reports for\n{email_message}\n\n--\nRegards,\n{com.company_name}\n{com.address}\n{com.state} - {com.country}\n{com.contact}",
+                from_email=settings.EMAIL_HOST_USER,
+                to=emails_list
+            )
+            email.attach(filename, pdf, "application/pdf")
+            email.send(fail_silently=False)
 
-                excelfile = BytesIO()
-                workbook.save(excelfile)
-                
-                mail_subject = f'Salesorder Reports - {date.today()}'
-                message = f"Hi,\nPlease find the SALES REPORTS file attached. \n{email_message}\n\n--\nRegards,\n{comp_details.company_name}\n{comp_details.address}\n{comp_details.state} - {comp_details.country}\n"
-                message = EmailMessage(mail_subject, message, settings.EMAIL_HOST_USER, emails_list)
-                message.attach(f'Salesorder Reports-{date.today()}.xlsx', excelfile.getvalue(), 'application/vnd.ms-excel')
-                message.send(fail_silently=False)
+            # messages.success(request, 'Salesorder Reports has been shared via email successfully..!')
+            return redirect(Salesorder_report)
+    # messages.error(request, 'An error occurred while sharing Salesorder Reports via email.')
+    return redirect(Salesorder_report)
 
-                messages.success(request, 'Sales Report has been shared via email successfully.')
-                return redirect(Salesorder_report)
-    except Exception as e:
-        print(e)
-        messages.error(request, 'An error occurred while sharing the sales report via email.')
-        return redirect(Salesorder_report)
+
+   
+
+
 
     
 

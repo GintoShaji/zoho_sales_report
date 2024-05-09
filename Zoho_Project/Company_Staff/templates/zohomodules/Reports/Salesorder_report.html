@@ -168,6 +168,9 @@
     .arrow.up {
         transform: rotate(180deg);
     }
+    input {
+        color-scheme: dark;
+      }
 </style>
 <body>       
     <div class="body-wrapper">
@@ -199,11 +202,11 @@
                                     <form action="{% url 'salesReportCustomized' %}" class="form reportCustomizeForm" method="get">
                                         <div class="px-2">
                                             <label style="text-align:left ">From</label><br>
-                                            <input style="color: white;" name="from_date" class="inputdate form-control" type="date" id="startDate" value="{{startDate}}">
+                                            <input style="color: white ;" name="from_date" class="inputdate form-control" type="date" id="startDate" value="{{startDate}}">
                                         </div>
                                         <div class="px-2">
                                             <label style="text-align:left ">To</label><br>
-                                            <input style="color: white;" name="to_date" type="date" class="inputdate form-control" id="endDate" value="{{endDate}}">
+                                            <input style="color: white ;" name="to_date" type="date" class="inputdate form-control" id="endDate" value="{{endDate}}">
                                         </div>
                                         <div class="px-2">
                                             <label style="text-align:left;color: white;">Sales Transaction</label><br>
@@ -281,8 +284,7 @@
                                                 <div class="py-4 bg-warning" >
                                                     <!-- <div id="ember2512" class="col-md-4 d-flex justify-content-start tooltip-container ember-view ribbon text-ellipsis"></div> -->
                                                     <div class="col-12">
-                                                            <center class="h2 text-white"><b>{{sale.company.company_name}} 
-                                                                {{details.login_details.last_name}}</b></center>
+                                                            <center class="h2 text-white"><b>{{companyName}}</b></center>
                                                             <center class="h3 text-white"><b>SALES ORDER DETAILS</b></center>
                                                             {% if startDate and endDate %}
                                                             <center class="h6 text-white">{{startDate}} TO {{endDate}}</center>
@@ -328,24 +330,11 @@
                                                                 </tbody>
                                                             </table>
                                                         </section>
-                                            
-            
-
-                                                        <section class="balance-info text-dark">
-                                                            <div class="row p-4">
-                                                                <div class="col-10">
-                                                                    <div class="row mb-2">
-                                                                        <div class="col-4">Total customers : <p style="font-size: 19px;">{{totalCustomers|default:0}}</p>
-                                                                        </div><br><br>
-                                                                    </div>
-                                                                    
-                                                                </div>
-                                                                <div class="col-2 text-center">
-                                                                    <h5 style="padding-top: 10px; color: #000; font-weight: bold;">Total Sales</h5>
-                                                                    <h4 class="text-dark" style="font-weight: 600;" id="totvalue">₹<span id="superTotal">{{total_sales_amount|default:0|floatformat:2}}</span></h4>
-                                                                </div>
-                                                            </div>
-                                                        </section>
+                                                        <br>
+                                                        <div class="mx-4 mt-3" style="color: rgb(103, 102, 102);font-size: large;" >
+                                                            <span for="">Total Customers : <span id="customerCount">{{totalCustomer|default:0}}</span></span>
+                                                            <label class="text-dark" style="float: right; font-weight: 600; color: #000;" >Total Sales : <span id="totvalue">₹</span id="superTotal"> {{total_sales_amount|default:0|floatformat:2}}</label>
+                                                        </div>
 
                                                     </div>
                                                         
